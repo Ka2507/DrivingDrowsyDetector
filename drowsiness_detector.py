@@ -373,10 +373,21 @@ def main():
     # Initialize detector
     detector = DrowsinessDetector()
     
-    # Initialize camera
+    # Initialize camera with better error handling
+    print("Initializing camera...")
     cap = cv2.VideoCapture(0)
+    
+    # Try different camera indices if 0 fails
     if not cap.isOpened():
-        print("Error: Could not open camera")
+        print("Camera 0 failed, trying camera 1...")
+        cap = cv2.VideoCapture(1)
+    
+    if not cap.isOpened():
+        print("Error: Could not open any camera")
+        print("Please check:")
+        print("1. Camera permissions are granted to Terminal")
+        print("2. No other applications are using the camera")
+        print("3. Camera is connected and working")
         return
     
     # Set camera properties
