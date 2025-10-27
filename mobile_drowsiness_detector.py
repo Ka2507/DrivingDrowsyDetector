@@ -126,8 +126,6 @@ class MobileDrowsinessDetector:
         self.cap = None
         self.current_frame = None
         self.last_update_time = 0
-        self.frame_skip_counter = 0
-        self.frame_skip_interval = 2  # Process every 2nd frame to reduce lag
         
     def euclidean_distance(self, p1, p2):
         return np.linalg.norm(np.array(p1) - np.array(p2))
@@ -198,12 +196,6 @@ class MobileDrowsinessDetector:
         """Process a single frame for drowsiness detection"""
         if frame is None:
             return None, {}
-        
-        # Frame skipping for better performance
-        self.frame_skip_counter += 1
-        if self.frame_skip_counter % self.frame_skip_interval != 0:
-            # Return previous frame with minimal processing
-            return frame, {'ear': 0.0, 'is_closed': False, 'perclos': 0.0, 'blink_count': self.blink_count, 'long_closure': False, 'is_low_light': False}
         
         # Low-light detection and enhancement
         is_low_light = self.low_light_handler.detect_low_light(frame)
