@@ -341,28 +341,33 @@ class DrowsinessDetector:
         return filename
 
 def play_beep():
-    """Play a beep sound"""
-    try:
-        # Generate beep sound
-        sr = 24000
-        dur = 0.3
-        t = np.linspace(0, dur, int(sr*dur), endpoint=False)
-        sig = (0.3*np.sin(2*np.pi*440*t)).astype(np.float32)
-        
-        # Save to temporary file and play
-        temp_file = "temp_beep.wav"
-        with wave.open(temp_file, 'wb') as w:
-            w.setnchannels(1)
-            w.setsampwidth(2)
-            w.setframerate(sr)
-            data16 = (sig * 32767).astype(np.int16).tobytes()
-            w.writeframes(data16)
-        
-        # Play using system command (works on macOS)
-        os.system(f"afplay {temp_file}")
-        os.remove(temp_file)
-    except Exception as e:
-        print(f"Could not play beep: {e}")
+    """Play a beep sound - non-blocking to prevent lag"""
+    def beep_thread():
+        try:
+            # Generate beep sound
+            sr = 24000
+            dur = 0.3
+            t = np.linspace(0, dur, int(sr*dur), endpoint=False)
+            sig = (0.3*np.sin(2*np.pi*440*t)).astype(np.float32)
+            
+            # Save to temporary file and play
+            temp_file = "temp_beep.wav"
+            with wave.open(temp_file, 'wb') as w:
+                w.setnchannels(1)
+                w.setsampwidth(2)
+                w.setframerate(sr)
+                data16 = (sig * 32767).astype(np.int16).tobytes()
+                w.writeframes(data16)
+            
+            # Play using system command (works on macOS) - run in background
+            os.system(f"afplay {temp_file} &")
+            os.remove(temp_file)
+        except Exception as e:
+            # Silent fail to avoid interrupting main thread
+            pass
+    
+    # Run beep in separate thread to avoid blocking
+    threading.Thread(target=beep_thread, daemon=True).start()
 
 def main():
     """Main application loop"""

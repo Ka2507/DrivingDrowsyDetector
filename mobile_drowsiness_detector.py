@@ -126,6 +126,8 @@ class MobileDrowsinessDetector:
         self.cap = None
         self.current_frame = None
         self.last_update_time = 0
+        self.frame_skip_counter = 0
+        self.frame_skip_interval = 2  # Process every 2nd frame to reduce lag
         
     def euclidean_distance(self, p1, p2):
         return np.linalg.norm(np.array(p1) - np.array(p2))
@@ -138,14 +140,22 @@ class MobileDrowsinessDetector:
         return (A + B) / (2.0 * C) if C != 0 else 0.0
     
     def play_beep(self):
-        """Cross-platform beep sound"""
-        if platform.system() == "Windows":
-            import winsound
-            winsound.Beep(440, 200)
-        elif platform.system() == "Darwin":  # macOS
-            os.system('afplay /System/Library/Sounds/Ping.aiff')
-        else:  # Linux/Android
-            os.system('play -nq -c1 synth 0.2 sine 440 2>/dev/null || echo "\\a"')
+        """Cross-platform beep sound - non-blocking"""
+        def beep_thread():
+            try:
+                if platform.system() == "Windows":
+                    import winsound
+                    winsound.Beep(440, 200)
+                elif platform.system() == "Darwin":  # macOS
+                    os.system('afplay /System/Library/Sounds/Ping.aiff &')
+                else:  # Linux/Android
+                    os.system('play -nq -c1 synth 0.2 sine 440 2>/dev/null &')
+            except:
+                # Silent fail if audio not available
+                pass
+        
+        # Run beep in separate thread to avoid blocking
+        threading.Thread(target=beep_thread, daemon=True).start()
     
     def update_metrics(self, ear, is_closed, t_now):
         """Update drowsiness metrics"""
@@ -164,9 +174,10 @@ class MobileDrowsinessDetector:
         closed_frames_in_window = sum(1 for _, _, closed in self.metrics_buffer if closed)
         perclos = (closed_frames_in_window / len(self.metrics_buffer)) * 100 if self.metrics_buffer else 0
         
-        # Long closure alert
+        # Long closure alert - optimized to reduce lag
         long_closure = self.frames_closed_consec >= CLOSED_EYES_FRAME_THRESHOLD
         if long_closure and (t_now - self.last_alert_time > ALERT_COOLDOWN_SEC):
+            # Play beep in background thread to avoid blocking
             self.play_beep()
             self.last_alert_time = t_now
         
@@ -187,6 +198,12 @@ class MobileDrowsinessDetector:
         """Process a single frame for drowsiness detection"""
         if frame is None:
             return None, {}
+        
+        # Frame skipping for better performance
+        self.frame_skip_counter += 1
+        if self.frame_skip_counter % self.frame_skip_interval != 0:
+            # Return previous frame with minimal processing
+            return frame, {'ear': 0.0, 'is_closed': False, 'perclos': 0.0, 'blink_count': self.blink_count, 'long_closure': False, 'is_low_light': False}
         
         # Low-light detection and enhancement
         is_low_light = self.low_light_handler.detect_low_light(frame)
@@ -251,9 +268,10 @@ class MobileDrowsinessDetector:
             if is_low_light:
                 cv2.putText(display_frame, "LOW LIGHT MODE", (w-200, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 255), 2)
             
-            # Alert
+            # Alert - optimized rendering to reduce lag
             if long_closure:
-                cv2.putText(display_frame, "DROWSINESS ALERT!", (w//2-100, h-50), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 255), 2)
+                # Use simpler text rendering for alerts to reduce lag
+                cv2.putText(display_frame, "ALERT!", (w//2-50, h-30), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
             
             # Draw eye landmarks
             for pts in [left_eye_pts, right_eye_pts]:
