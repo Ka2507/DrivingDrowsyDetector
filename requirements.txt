@@ -5,3 +5,12 @@ pandas==2.2.3
 mediapipe==0.10.14
 streamlit==1.39.0
 Pillow==10.0.0
+
+# Mobile deployment dependencies
+kivy==2.2.0
+kivymd==1.1.1
+buildozer==1.5.0
+
+# Optional: For enhanced mobile features
+plyer==2.1.0
+pyjnius==1.4.2
